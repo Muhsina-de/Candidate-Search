@@ -1,43 +1,125 @@
-import { useState, useEffect } from 'react';
-import { Candidate } from '../interfaces/Candidate.interface'; // Import the interface
-import { getSavedCandidates, removeCandidate } from '../utlis/localStorage'; // Import utils for localStorage handling
+// src/components/SavedCandidates.tsx
+import React, { useState, useEffect } from 'react';
+import { Candidate } from '../interfaces/Candidate.interface';
+import { getSavedCandidates, removeCandidate } from '../utlis/localStorage';
 
-const SavedCandidates = () => {
+
+
+
+// Add a new style object:
+const cellTruncate: React.CSSProperties = {
+
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+};
+
+
+const tableContainer: React.CSSProperties = {
+  width: '100%',
+  overflowX: 'auto',
+  backgroundColor: '#ffffff',
+  borderRadius: '8px',
+  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+};
+
+const tableStyle: React.CSSProperties = {
+  width: '100%',
+  borderCollapse: 'collapse',
+};
+
+const thTdStyle: React.CSSProperties = {
+  padding: '12px 8px',
+  textAlign: 'left',
+  borderBottom: '1px solid #ddd',
+};
+
+const headerStyle: React.CSSProperties = {
+  backgroundColor: '#f4f4f4',
+};
+
+
+
+const pageStyle: React.CSSProperties = {
+  minHeight: '100vh',
+  padding: '16px',
+  color: '#fff',
+};
+
+const titleStyle: React.CSSProperties = {
+  textAlign: 'center',
+  marginBottom: '24px',
+  fontSize: '32px',
+};
+
+
+
+
+const SavedCandidates: React.FC = () => {
   const [savedCandidates, setSavedCandidates] = useState<Candidate[]>([]);
 
-  // Load saved candidates from local storage
   useEffect(() => {
-    const storedCandidates = getSavedCandidates(); // Load from utility
-    setSavedCandidates(storedCandidates);
+    setSavedCandidates(getSavedCandidates());
   }, []);
 
-  // Remove a candidate from the saved list
-  const handleRemoveCandidate = (login: string) => {
-    const updatedCandidates = savedCandidates.filter((candidate) => candidate.login !== login);
-    setSavedCandidates(updatedCandidates);
-    removeCandidate(login); // Call the utility to update localStorage
+  const handleRemove = (login: string) => {
+    const updated = savedCandidates.filter(c => c.login !== login);
+    setSavedCandidates(updated);
+    removeCandidate(login);
   };
 
   return (
-    <div>
-      <h1>Potential Candidates</h1>
+
+    <div style={pageStyle}>
+      <h1 style={titleStyle}>Potential Candidates</h1>
+
       {savedCandidates.length === 0 ? (
-        <p>No candidates have been saved yet.</p>
+        <p style={{ textAlign: 'center', fontSize: '18px' }}>
+          No candidates have been saved yet.
+        </p>
       ) : (
-        savedCandidates.map((candidate) => (
-          <div key={candidate.login}>
-            <img src={candidate.avatar_url} alt="Avatar" style={{ width: '50px', height: '50px', borderRadius: '50%' }} />
-            <h2>{candidate.name}</h2>
-            <p>Username: {candidate.login}</p>
-            <p>Location: {candidate.location || 'Not Available'}</p>
-            <p>Email: {candidate.email || 'Not Available'}</p>
-            <p>Company: {candidate.company || 'Not Available'}</p>
-            <a href={candidate.html_url} target="_blank" rel="noopener noreferrer">
-              GitHub Profile
-            </a>
-            <button onClick={() => handleRemoveCandidate(candidate.login)}>-</button>
-          </div>
-        ))
+        <div style={tableContainer}>
+          <table style={tableStyle}>
+            <thead style={headerStyle}>
+              <tr>
+                {['Image', 'Name', 'Location', 'Email', 'Company', 'Bio', 'Actions'].map(col => (
+                  <th key={col} style={thTdStyle}>{col}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {savedCandidates.map(candidate => (
+                <tr key={candidate.login}>
+                  <td style={thTdStyle}>
+                    <img
+                      src={candidate.avatar_url}
+                      alt={`Avatar of ${candidate.login}`}
+                      width={48}
+                      height={48}
+                      style={{ borderRadius: '20%', border: "2px solid white" }}
+                    />
+                  </td>
+                  <td style={{ ...thTdStyle, ...cellTruncate }}><span title={`${candidate.name} (${candidate.login})`} >{candidate.name || "—"}</span> <div style={{ fontStyle: "italic" }}>({candidate.login})</div></td>
+
+
+
+                  <td style={{ ...thTdStyle, ...cellTruncate }}><span title={candidate.location || '—'}>{candidate.location || '—'}</span></td>
+                  <td style={{ ...thTdStyle, ...cellTruncate }}><span title={candidate.email || '—'}>{candidate.email || '—'}</span></td>
+                  <td style={{ ...thTdStyle, ...cellTruncate }}><span title={candidate.company || '—'}>{candidate.company || '—'}</span></td>
+                  <td style={{ ...thTdStyle, ...cellTruncate }}><span title={candidate.bio || '—'}>{candidate.bio || '—'}</span></td>
+                  <td style={{ ...thTdStyle, ...cellTruncate }}>
+                    <button
+                      onClick={() => handleRemove(candidate.login)}
+
+                    >
+                      −
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

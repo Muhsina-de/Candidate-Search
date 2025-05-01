@@ -1,86 +1,158 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { FaPlus, FaMinus } from 'react-icons/fa';
 import { searchGithub } from '../api/API';
-import { Candidate } from '../interfaces/Candidate.interface'; // Import the interface
-import { saveCandidate, getSavedCandidates } from '../utlis/localStorage'; // Add utility functions for localStorage
+import { Candidate } from '../interfaces/Candidate.interface';
+import { getSavedCandidates, saveCandidate } from '../utlis/localStorage';
+import { FaExternalLinkAlt } from 'react-icons/fa'
+import '../styles/CandidateSearch.css';
 
-const CandidateSearch = () => {
+
+
+const CandidateSearch: React.FC = () => {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [, setSavedCandidates] = useState<Candidate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Fetch candidates from GitHub API
-  useEffect(() => {
-    const fetchCandidates = async () => {
-      try {
-        const data = await searchGithub(); // Fetch candidate data from API
-        setCandidates(data);
-      } catch (error) {
-        console.error('Error fetching candidates:', error);
+  const loadCandidates = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      let data = await searchGithub();
+      console.log('SEARCH_CANDIDATES<', data);
+
+      const savedLogins = getSavedCandidates().map(c => c.login);
+      // const fresh = data.filter(u => !savedLogins.includes(u.login));
+      // setCandidates(fresh);
+
+      let fresh = data.filter(u => !savedLogins.includes(u.login));
+
+      // If we got none (or too few), try one more time
+      if (fresh.length === 0) {
+        data = await searchGithub();
+        fresh = data.filter(u => !savedLogins.includes(u.login));
       }
-    };
 
-    fetchCandidates();
-    setSavedCandidates(getSavedCandidates()); // Load saved candidates from localStorage
-  }, []);
+      if (fresh.length === 0) {
+        // truly no new candidates
+        setCandidates([]);
+      } else {
+        setCandidates(fresh);
+      }
 
-  // Save the current candidate
-  const handleSaveCandidate = () => {
-    if (candidates[currentIndex]) {
-      const candidateToSave = candidates[currentIndex];
-      saveCandidate(candidateToSave); // Save to localStorage
-      setSavedCandidates((prev) => [...prev, candidateToSave]);
-      nextCandidate();
+
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Skip the current candidate (Reject button)
-  const rejectCandidate = () => {
-    nextCandidate();
+  useEffect(() => {
+    loadCandidates();
+  }, []);
+
+  const handleSaveCandidate = () => {
+    saveCandidate(candidates[currentIndex]);
+    setCurrentIndex(idx => idx + 1);
   };
 
-  // Move to the next candidate
-  const nextCandidate = () => {
-    setCurrentIndex((prevIndex) => prevIndex + 1);
-  };
+  const rejectCandidate = () => setCurrentIndex(idx => idx + 1);
 
-  // Check if there are no more candidates
-  const isOutOfCandidates = currentIndex >= candidates.length;
+  if (loading) {
+    return (
+      <div className="loaderContainer">
+        <div className="loader" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="loaderContainer">
+        <p className="info" style={{ color: '#e74c3c' }}>Error: {error}</p>
+        <button
+          onClick={loadCandidates}
+          className="button"
+          style={{ background: '#3498db', marginTop: '1rem' }}
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
+  const isOut = currentIndex >= candidates.length;
+  const current = candidates[currentIndex] || ({} as Candidate);
 
   return (
-    <div>
-      <h1>Candidate Search</h1>
-      {isOutOfCandidates ? (
-        <p>No more candidates available.</p>
+    <div className="container">
+      <h1 className="title">Candidate Search</h1>
+
+      {isOut ? (
+        <p className="info" style={{ color: '#fff', fontSize: '1.25rem' }}>
+          No more candidates available.
+        </p>
       ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Image</th>
-              <th>Name</th>
-              <th>Location</th>
-              <th>Email</th>
-              <th>Company</th>
-              <th>Bio</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>
-                <img src={candidates[currentIndex]?.avatar_url} alt="Avatar" style={{ width: '50px', height: '50px', borderRadius: '50%' }} />
-              </td>
-              <td>{candidates[currentIndex]?.login || 'Unknown'}</td>
-              <td>{candidates[currentIndex]?.location || 'Not Available'}</td>
-              <td>{candidates[currentIndex]?.email || 'Not Available'}</td>
-              <td>{candidates[currentIndex]?.company || 'Not Available'}</td>
-              <td>{candidates[currentIndex]?.bio || 'Not Available'}</td>
-              <td>
-                <button onClick={handleSaveCandidate}>Save</button>
-                <button onClick={rejectCandidate}>Reject</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div className='card'>
+          <div className="innerCard">
+            <img
+              src={current.avatar_url}
+              alt={current.login}
+              className="avatar"
+            />
+            <h2 className="name">
+              {current.name || "Un Known"} ({current.login})
+            </h2>
+            <p className="info">
+              Location: {current.location || 'Not Available'}
+            </p>
+            <p className="info">
+              Email: {current.email || 'Not Available'}
+            </p>
+            <p className="info">
+              Company: {current.company || 'Not Available'}
+            </p>
+
+            {
+              current?.html_url
+                ? (
+                  <p className="info">
+                    <a
+                      href={current.html_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="link"
+                    >
+                      Profile
+                      <FaExternalLinkAlt
+                        style={{ marginLeft: '0.25rem', verticalAlign: 'text-bottom' }}
+                        aria-label="(opens in a new tab)"
+                      />
+                    </a>
+                  </p>
+                )
+                : <p className="info">'Not Available'</p>
+
+            }
+
+
+          </div>
+          <div className="controls">
+            <button
+              onClick={rejectCandidate}
+              className="button reject"
+            >
+              <FaMinus />
+            </button>
+            <button
+              onClick={handleSaveCandidate}
+              className="button accept"
+            >
+              <FaPlus />
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
