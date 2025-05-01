@@ -1,44 +1,50 @@
-const searchGithub = async () => {
+// src/api/API.ts
+const BASE = 'https://api.github.com';
+const MAX_ID = 50_000_000;
+const GITHUB_TOKEN = import.meta.env.VITE_GITHUB_TOKEN;
+console.log("GITHUB_TOKEN", GITHUB_TOKEN)
+console.log("BASE", BASE)
+console.log("ALL ENVS,", import.meta.env)
+
+const DEFAULT_HEADERS = {
+  Authorization: `token ${GITHUB_TOKEN}`,
+  'User-Agent': 'CandidateSearchApp/1.0',
+  Accept: 'application/vnd.github.v3+json',
+};
+
+async function searchGithub(): Promise<any[]> {
   try {
-    const start = Math.floor(Math.random() * 100000000) + 1;
-    // console.log(import.meta.env);
-    const response = await fetch(
-      `https://api.github.com/users?since=${start}`,
-      {
-        headers: {
-          Authorization: `Bearer ${import.meta.env.VITE_GITHUB_TOKEN}`,
-        },
-      }
+
+    const since = Math.floor(Math.random() * MAX_ID) + 1;
+    const listRes = await fetch(
+      `${BASE}/users?since=${since}&per_page=10`,
+      { headers: DEFAULT_HEADERS }
     );
-    // console.log('Response:', response);
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error('invalid API response, check the network tab');
-    }
-    // console.log('Data:', data);
-    return data;
+    if (!listRes.ok) throw new Error('List fetch failed');
+
+    const users = (await listRes.json()) as { login: string }[];
+
+
+    const settled = await Promise.allSettled(
+      users.map(u =>
+        fetch(`${BASE}/users/${u.login}`, { headers: DEFAULT_HEADERS })
+          .then(res => {
+            if (!res.ok) throw new Error(`404 for ${u.login}`);
+            return res.json();
+          })
+      )
+    );
+
+
+    const detailed = settled
+      .filter(r => r.status === 'fulfilled')
+      .map((r: any) => r.value);
+
+    return detailed;
   } catch (err) {
-    // console.log('an error occurred', err);
+    console.error(err);
     return [];
   }
-};
+}
 
-const searchGithubUser = async (username: string) => {
-  try {
-    const response = await fetch(`https://api.github.com/users/${username}`, {
-      headers: {
-        Authorization: `Bearer ${import.meta.env.VITE_GITHUB_TOKEN}`,
-      },
-    });
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error('invalid API response, check the network tab');
-    }
-    return data;
-  } catch (err) {
-    // console.log('an error occurred', err);
-    return {};
-  }
-};
-
-export { searchGithub, searchGithubUser };
+export { searchGithub };
